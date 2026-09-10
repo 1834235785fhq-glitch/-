@@ -1,0 +1,16 @@
+<script setup lang="ts">
+import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { Lock } from '@element-plus/icons-vue'
+import { api } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
+
+const router=useRouter(),auth=useAuthStore(),visible=ref(false),submitting=ref(false),showPassword=ref(false)
+const form=reactive({currentPassword:'',newPassword:'',confirmPassword:''})
+function open(){Object.assign(form,{currentPassword:'',newPassword:'',confirmPassword:''});showPassword.value=false;visible.value=true}
+async function submit(){if(!form.currentPassword||!form.newPassword||!form.confirmPassword)return ElMessage.warning('请完整填写密码信息');if(form.newPassword!==form.confirmPassword)return ElMessage.warning('两次输入的新密码不一致');if(form.newPassword.length<8||!/\d/.test(form.newPassword)||!/[A-Za-z]/.test(form.newPassword))return ElMessage.warning('新密码需为 8—32 位，且同时包含字母和数字');submitting.value=true;try{await api.patch('/api/auth/password',{currentPassword:form.currentPassword,newPassword:form.newPassword});ElMessage.success('密码修改成功，请重新登录');visible.value=false;auth.logout();await router.replace('/login')}catch(e){ElMessage.error(e instanceof Error?e.message:'密码修改失败')}finally{submitting.value=false}}
+defineExpose({open})
+</script>
+<template><el-dialog v-model="visible" title="修改登录密码" width="min(480px,92vw)" destroy-on-close><div class="password-form"><div class="security-tip"><el-icon><Lock/></el-icon><div><strong>保护你的账号安全</strong><span>修改成功后，需要使用新密码重新登录。</span></div></div><label><span>原密码</span><el-input v-model="form.currentPassword" :type="showPassword?'text':'password'" autocomplete="current-password" placeholder="请输入当前登录密码" show-password/></label><label><span>新密码</span><el-input v-model="form.newPassword" :type="showPassword?'text':'password'" autocomplete="new-password" placeholder="8—32 位，同时包含字母和数字" show-password/></label><label><span>确认新密码</span><el-input v-model="form.confirmPassword" :type="showPassword?'text':'password'" autocomplete="new-password" placeholder="请再次输入新密码" show-password/></label><ul><li :class="{ok:form.newPassword.length>=8}">至少 8 个字符</li><li :class="{ok:/[A-Za-z]/.test(form.newPassword)&&/\d/.test(form.newPassword)}">同时包含字母和数字</li><li :class="{ok:!!form.confirmPassword&&form.confirmPassword===form.newPassword}">两次输入保持一致</li></ul></div><template #footer><el-button @click="visible=false">取消</el-button><el-button type="primary" :loading="submitting" @click="submit">确认修改</el-button></template></el-dialog></template>
+<style scoped>.password-form{display:grid;gap:15px}.security-tip{padding:12px;border-radius:8px;display:flex;align-items:center;gap:10px;color:#176f67;background:#edf7f5}.security-tip>.el-icon{font-size:20px}.security-tip>div{display:grid;gap:3px}.security-tip strong{font-size:10px}.security-tip span{color:#72827d;font-size:8px}.password-form label{display:grid;gap:7px}.password-form label>span{color:#44524e;font-size:10px;font-weight:600}.password-form ul{margin:0;padding:0;display:flex;gap:16px;list-style:none;color:#969f9c;font-size:8px}.password-form li:before{content:'○';margin-right:4px}.password-form li.ok{color:#178071}.password-form li.ok:before{content:'✓'}@media(max-width:500px){.password-form ul{align-items:flex-start;flex-direction:column;gap:6px}}</style>
