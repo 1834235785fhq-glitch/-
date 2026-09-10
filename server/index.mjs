@@ -9,6 +9,8 @@ const app = express()
 const port = 3100
 const root = path.dirname(fileURLToPath(import.meta.url))
 const dbPath = path.join(root, 'db.json')
+const isVercel = Boolean(process.env.VERCEL)
+let serverlessDb = null
 const adminUser = { id: 1, name: '王老师', role: '宿管老师', initials: '王', building: '松园 1 号楼', permissions: ['dorm-manager'] }
 const studentUser = { id: 1, studentId: 1, name: '陈一凡', role: '学生', initials: '陈', studentNo: '2024010312', permissions: ['student'] }
 const adminToken = createHash('sha256').update('smart-dormitory-admin-session').digest('hex')
@@ -21,10 +23,17 @@ app.use(cors())
 app.use(express.json({ limit: '1mb' }))
 
 async function readDb() {
-  return JSON.parse(await readFile(dbPath, 'utf8'))
+  if (isVercel && serverlessDb) return structuredClone(serverlessDb)
+  const db = JSON.parse(await readFile(dbPath, 'utf8'))
+  if (isVercel) serverlessDb = structuredClone(db)
+  return db
 }
 
 async function saveDb(db) {
+  if (isVercel) {
+    serverlessDb = structuredClone(db)
+    return
+  }
   await writeFile(dbPath, `${JSON.stringify(db, null, 2)}\n`, 'utf8')
 }
 
@@ -469,4 +478,8 @@ app.use((error, _req, res, _next) => {
   res.status(500).json({ code: 500, message: '服务器内部错误', data: null })
 })
 
-app.listen(port, '127.0.0.1', () => console.log(`API ready at http://127.0.0.1:${port}`))
+if (!isVercel) {
+  app.listen(port, '127.0.0.1', () => console.log(`API ready at http://127.0.0.1:${port}`))
+}
+
+export default app
